@@ -1,7 +1,7 @@
-use std::ops::Add;
-use std::collections::{HashMap, BinaryHeap, HashSet};
 use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashMap};
 use std::hash::Hash;
+use std::ops::Add;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct DjikstraNode<P: Ord, V: Eq> {
@@ -86,8 +86,5 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_astar_example_1() {
-    }
-
-
+    fn test_astar_example_1() {}
 }
