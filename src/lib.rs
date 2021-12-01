@@ -9,6 +9,7 @@ struct DjikstraNode<P: Ord, V: Eq> {
     vertex: V,
 }
 
+/// Djikstra's algorithm
 pub fn djikstra<V, W, I>(
     cost: impl Fn(V, V) -> W,
     adjacent: impl Fn(V) -> I,
@@ -81,10 +82,63 @@ impl<P: Ord, V: Eq> PartialOrd for DjikstraNode<P, V> {
     }
 }
 
+pub type AdjMap<V, W> = HashMap<V, HashMap<V, W>>;
+
+/// Make an adjacency map out of a set of edges
+pub fn make_adj_map<V: Copy + Hash + Eq, W: Copy>(graph: &[(V, V, W)]) -> AdjMap<V, W> {
+    let mut adj: AdjMap<V, W> = HashMap::new();
+    for &(a, b, weight) in graph {
+        adj.entry(a).or_default().insert(b, weight);
+        adj.entry(b).or_default().insert(a, weight);
+    }
+    adj
+}
+
+/// Run djikstra's algorithm on an adjacency map
+pub fn djikstra_adj_map<V, W>(adj: &AdjMap<V, W>, start: V, end: V) -> Option<Vec<V>>
+where
+    W: Copy + Ord + Add<Output = W> + Default,
+    V: Copy + Eq + Hash,
+{
+    let cost = |a, b| adj[&a][&b];
+    let adjacent = |a| adj[&a].keys().copied();
+
+    djikstra(cost, adjacent, start, end)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_astar_example_1() {}
+    fn test_djikstra_example_1() {
+        test_case(
+            &[
+                ('a', 'b', 7),
+                ('a', 'c', 9),
+                ('a', 'f', 14),
+                ('b', 'c', 10),
+                ('b', 'd', 15),
+                ('c', 'd', 11),
+                ('c', 'f', 2),
+                ('d', 'e', 6),
+                ('e', 'f', 9),
+            ],
+            'a',
+            'e',
+            Some(vec!['e', 'f', 'c', 'a']),
+        );
+    }
+
+    #[track_caller]
+    fn test_case(
+        graph: &[(char, char, u32)],
+        start: char,
+        end: char,
+        expect_path: Option<Vec<char>>,
+    ) {
+        let adj = make_adj_map(graph);
+        let path = djikstra_adj_map(&adj, start, end);
+        assert_eq!(path, expect_path);
+    }
 }
