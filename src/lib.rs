@@ -2,6 +2,7 @@ use std::ops::Add;
 use std::collections::{HashMap, BinaryHeap, HashSet};
 use std::cmp::Ordering;
 use std::hash::Hash;
+use std::fmt::Debug;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct DjikstraNode<P: Ord, V: Eq> {
@@ -18,7 +19,7 @@ pub fn djikstra<V, P, I>(
 where
     P: Copy + Ord + Add<Output = P> + Default,
     I: Iterator<Item = V>,
-    V: Copy + Eq + Hash,
+    V: Copy + Eq + Hash + Debug,
 {
     let mut prev: HashMap<V, V> = HashMap::new();
     let mut queue: BinaryHeap<DjikstraNode<P, V>> = BinaryHeap::new();
@@ -41,6 +42,9 @@ where
             while let Some(&next) = prev.get(&current) {
                 path.push(next);
                 current = next;
+                if current == start {
+                    break;
+                }
             }
             return Some(path);
         }
@@ -68,7 +72,7 @@ impl<P: Ord, V: Eq> DjikstraNode<P, V> {
 
 impl<P: Ord, V: Eq> Ord for DjikstraNode<P, V> {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.priority.cmp(&other.priority)
+        self.priority.cmp(&other.priority).reverse()
     }
 }
 
