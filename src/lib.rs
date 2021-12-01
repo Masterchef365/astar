@@ -2,7 +2,6 @@ use std::ops::Add;
 use std::collections::{HashMap, BinaryHeap, HashSet};
 use std::cmp::Ordering;
 use std::hash::Hash;
-use std::fmt::Debug;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct DjikstraNode<P: Ord, V: Eq> {
@@ -10,22 +9,22 @@ struct DjikstraNode<P: Ord, V: Eq> {
     vertex: V,
 }
 
-pub fn djikstra<V, P, I>(
-    cost: impl Fn(V, V) -> P,
+pub fn djikstra<V, W, I>(
+    cost: impl Fn(V, V) -> W,
     adjacent: impl Fn(V) -> I,
     start: V,
     end: V,
 ) -> Option<Vec<V>>
 where
-    P: Copy + Ord + Add<Output = P> + Default,
+    W: Copy + Ord + Add<Output = W> + Default,
     I: Iterator<Item = V>,
-    V: Copy + Eq + Hash + Debug,
+    V: Copy + Eq + Hash,
 {
     let mut prev: HashMap<V, V> = HashMap::new();
-    let mut queue: BinaryHeap<DjikstraNode<P, V>> = BinaryHeap::new();
-    let mut dist: HashMap<V, P> = HashMap::new();
+    let mut queue: BinaryHeap<DjikstraNode<W, V>> = BinaryHeap::new();
+    let mut dist: HashMap<V, W> = HashMap::new();
 
-    queue.push(DjikstraNode::new(P::default(), start));
+    queue.push(DjikstraNode::new(W::default(), start));
 
     while let Some(node) = queue.pop() {
         // Skip invalidated nodes
@@ -80,4 +79,15 @@ impl<P: Ord, V: Eq> PartialOrd for DjikstraNode<P, V> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(&other))
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_astar_example_1() {
+    }
+
+
 }
