@@ -10,12 +10,13 @@ fn main() {
     let height = 1800;
     let mut obstacles = vec![false; width * height];
     let image_path = "out.png";
-    let max_iters = 9999;
+    let max_iters = 4999;
+    let seed = 4328070342;
 
     let min_path_len = (width + height) * 2;
-    let n_paths = 40_000;
+    let n_paths = 400_000;
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
 
     fn random_pos(mut rng: impl Rng, width: usize, height: usize) -> Coord {
         (
