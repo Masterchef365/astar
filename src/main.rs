@@ -14,7 +14,17 @@ fn main() {
 
     // Neighbors
     let neighbors = |(x, y)| {
-        [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
+        //[(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
+        [
+            (x - 1, y), 
+            (x + 1, y), 
+            (x + 1, y - 1), 
+            (x, y - 1), 
+            (x - 1, y - 1), 
+            (x + 1, y + 1),
+            (x, y + 1),
+            (x - 1, y + 1),
+        ]
             .into_iter()
             .filter(|&(x, y)| match bounds(x, y, width, height) {
                 Some(idx) => !obstacles[idx],
@@ -22,8 +32,10 @@ fn main() {
             })
     };
 
+    let cost = |a, b| 1 + heuristic(b, a, end);
+
     // Calculate path
-    let path = djikstra(|_, _| 1, neighbors, begin, end);
+    let path = djikstra(cost, neighbors, begin, end);
     let path = path.expect("No path!");
 
     // Write image
@@ -51,4 +63,16 @@ fn main() {
 fn bounds(x: isize, y: isize, width: usize, height: usize) -> Option<usize> {
     (x >= 0 && y >= 0 && x < width as isize && y < height as isize)
         .then(|| x as usize + y as usize * width)
+}
+
+fn heuristic(a: (isize, isize), b: (isize, isize), goal: (isize, isize)) -> isize {
+    dist_sq(a, goal) - dist_sq(b, goal)
+}
+
+/// Squared distance
+fn dist_sq((x, y): (isize, isize), (goal_x, goal_y): (isize, isize)) -> isize {
+    let dx = x - goal_x;
+    let dy = y - goal_y;
+
+    dx * dx + dy * dy
 }
