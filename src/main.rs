@@ -6,12 +6,12 @@ use std::io::BufWriter;
 type Coord = (isize, isize);
 
 fn main() {
-    let width = 500;
-    let height = 500;
+    let width = 150;
+    let height = 150;
     let mut obstacles = vec![false; width * height];
     let image_path = "out.png";
 
-    let n_paths = 50;
+    let n_paths = 355;
 
     let mut rng = rand::thread_rng();
 
@@ -22,52 +22,77 @@ fn main() {
         )
     }
 
-    let goals: Vec<(Coord, Coord)> = (0..n_paths)
+    let mut goals: Vec<Option<(Coord, Coord)>> = (0..n_paths)
         .map(|_| {
-            (
+            Some((
                 random_pos(&mut rng, width, height),
                 random_pos(&mut rng, width, height),
-            )
+            ))
         })
         .collect();
 
     // Write to image
     let mut output_image = vec![0u8; width * height * 3];
 
-    for (goal_idx, (begin, end)) in goals.into_iter().enumerate() {
-        let path_color = index_color(goal_idx);
+    loop {
+        for (goal_idx, goal) in goals.iter_mut().enumerate() {
+            let (begin, end) = match goal.as_mut() {
+                Some(g) => g,
+                None => continue,
+            };
 
-        // Neighbors
-        let neighbors = |(x, y)| {
-            four_directions((x, y))
-                //eight_directions((x, y))
-                .into_iter()
-                .filter(|&(x, y)| match bounds(x, y, width, height) {
-                    Some(idx) => !obstacles[idx],
-                    None => false,
-                })
-        };
+            if *begin == *end {
+                *goal = None;
+                continue;
+            }
 
-        let cost = |a, b| 1 + heuristic(b, a, end);
+            obstacles[bounds(begin.0, begin.1, width, height).unwrap()] = true;
 
-        // Calculate path
-        if let Some(path) = djikstra(cost, neighbors, begin, end) {
+            let path_color = index_color(goal_idx);
 
-            /*
-            output_image
-                .chunks_exact_mut(3)
-                .zip(obstacles)
-                .filter(|(_, b)| *b)
-                .for_each(|(u, _)| u[1] = 0xff);
-            */
+            // Neighbors
+            let neighbors = |(x, y)| {
+                four_directions((x, y))
+                    //eight_directions((x, y))
+                    .into_iter()
+                    .filter(|&(x, y)| match bounds(x, y, width, height) {
+                        Some(idx) => !obstacles[idx],
+                        None => false,
+                    })
+            };
 
-            for (x, y) in path {
+            let cost = |a, b| 1 + heuristic(b, a, *end);
+
+            // Calculate path
+            if let Some(path) = djikstra(cost, neighbors, *begin, *end) {
+                let len = path.len();
+                let next_step = path[len - 2];
+                /*
+                   output_image
+                   .chunks_exact_mut(3)
+                   .zip(obstacles)
+                   .filter(|(_, b)| *b)
+                   .for_each(|(u, _)| u[1] = 0xff);
+                   */
+
+                let (x, y) = next_step;
+                //for (x, y) in path {
                 if let Some(idx) = bounds(x, y, width, height) {
-                    obstacles[idx] = true;
                     output_image[idx * 3..][..3].copy_from_slice(&path_color);
                 }
+                *begin = next_step;
+                //}
+            } else {
+                *goal = None;
             }
         }
+
+        if goals.iter().all(|g| g.is_none()) {
+            break;
+        }
+
+        dbg!(goals.iter().filter(|g| g.is_some()).count());
+        //dbg!(&goals);
     }
 
     // For reading and opening files
@@ -119,6 +144,14 @@ fn eight_directions((x, y): Coord) -> [Coord; 8] {
 }
 
 fn index_color(idx: usize) -> [u8; 3] {
-    let colors = [[0xFF, 0xEC, 0x04], [0x38, 0xC6, 0xDB], [0xDB, 0x38, 0x83]];
-    colors[idx % colors.len()]
+    let lut: [[i32; 3]; 3] = [[0xFF, 0xEC, 0x04], [0x38, 0xC6, 0xDB], [0xDB, 0x38, 0x83]];
+    let base = lut[idx % lut.len()];
+    let mut rng = rand::rngs::SmallRng::seed_from_u64(idx as _);
+    let diff: i32 = 50;
+    let mut component = |idx: usize| (base[idx] + rng.gen_range(-diff..=diff)).clamp(0, 255) as u8;
+    [
+        component(0),
+        component(1),
+        component(2),
+    ]
 }
