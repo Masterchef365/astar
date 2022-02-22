@@ -6,10 +6,28 @@ use std::io::BufWriter;
 type Coord = (isize, isize);
 
 fn main() {
-    let width = 2880;
-    let height = 1800;
+    let input_path = std::env::args().skip(1).next().unwrap();
+    // The decoder is a build for reader and can be used to set various decoding options
+    // via `Transformations`. The default output transformation is `Transformations::IDENTITY`.
+    let decoder = png::Decoder::new(File::open(input_path).unwrap());
+    let mut reader = decoder.read_info().unwrap();
+    // Allocate the output buffer.
+    let mut buf = vec![0; reader.output_buffer_size()];
+    // Read the next frame. An APNG might contain multiple frames.
+    let info = reader.next_frame(&mut buf).unwrap();
+    assert!(info.color_type == png::ColorType::Rgb);
+    assert!(info.bit_depth == png::BitDepth::Eight);
+    // Grab the bytes of the image.
+    let input_bytes = &buf[..info.buffer_size()];
+
+
+    let width = info.width as usize;
+    let height = info.height as usize;
+    assert_eq!(input_bytes.len(), width * height * 3);
     let mut obstacles = vec![false; width * height];
-    let image_path = "out.png";
+    obstacles.iter_mut().zip(input_bytes.chunks_exact(3)).for_each(|(ob, inp)| *ob = inp == &[0; 3]);
+
+    let output_path = "out.png";
     let max_iters = 4999;
     let seed = 4328070342;
 
@@ -81,7 +99,7 @@ fn main() {
     }
 
     // For reading and opening files
-    let file = File::create(image_path).unwrap();
+    let file = File::create(output_path).unwrap();
     let ref mut w = BufWriter::new(file);
 
     let mut encoder = png::Encoder::new(w, width as _, height as _); // Width is 2 pixels and height is 1.
