@@ -25,10 +25,10 @@ fn main() {
     let height = info.height as usize;
     assert_eq!(input_bytes.len(), width * height * 3);
     let mut obstacles = vec![false; width * height];
-    obstacles.iter_mut().zip(input_bytes.chunks_exact(3)).for_each(|(ob, inp)| *ob = inp == &[0; 3]);
+    obstacles.iter_mut().zip(input_bytes.chunks_exact(3)).for_each(|(ob, inp)| *ob = inp != &[0; 3]);
 
     let output_path = "out.png";
-    let max_iters = 4999;
+    let max_iters = 2999;
     let seed = 4328070342;
 
     let min_path_len = (width + height) * 2;
