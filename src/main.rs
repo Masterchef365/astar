@@ -22,23 +22,6 @@ fn main() {
     let begin = (10, 10);
     let end = (2 * width as isize / 3, 2 * height as isize / 3);
 
-    /*
-    let eight_directions = |(x, y): Coord| {
-        [
-            (x - 1, y),
-            (x + 1, y),
-            (x + 1, y - 1),
-            (x, y - 1),
-            (x - 1, y - 1),
-            (x + 1, y + 1),
-            (x, y + 1),
-            (x - 1, y + 1),
-        ]
-    };
-    */
-
-    let four_directions = |(x, y): Coord| [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)];
-
     // Neighbors
     let neighbors = |(x, y)| {
         four_directions((x, y))
@@ -100,4 +83,23 @@ fn dist_sq((x, y): Coord, (goal_x, goal_y): Coord) -> isize {
     let dy = y - goal_y;
 
     dx * dx + dy * dy
+}
+
+/// Up, down, left, right
+fn four_directions((x, y): Coord) -> [Coord; 4] {
+    [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
+}
+
+/// Adjacent and diagonally adjacent pixels
+fn eight_directions((x, y): Coord) -> [Coord; 8] {
+    [
+        (x - 1, y),
+        (x + 1, y),
+        (x + 1, y - 1),
+        (x, y - 1),
+        (x - 1, y - 1),
+        (x + 1, y + 1),
+        (x, y + 1),
+        (x - 1, y + 1),
+    ]
 }
