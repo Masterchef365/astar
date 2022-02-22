@@ -7,6 +7,7 @@ edition = "2021"
 priority-queue = "1.0.2"
 png = "0.17.3"
 rand = { version = "0.8", features = ["small_rng"] }
+zwohash = { version = "0.1.2", default-features = false }
 
 [profile.release]
 debug = true

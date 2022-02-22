@@ -6,12 +6,12 @@ use std::io::BufWriter;
 type Coord = (isize, isize);
 
 fn main() {
-    let width = 1920;
-    let height = 1080;
+    let width = 1500;
+    let height = 500;
     let mut obstacles = vec![false; width * height];
     let image_path = "out.png";
 
-    let min_path_len = (width + height) / 2;
+    let min_path_len = (width + height) * 2;
     let n_paths = 1355;
 
     let mut rng = rand::thread_rng();

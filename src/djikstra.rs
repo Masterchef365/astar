@@ -3,6 +3,7 @@ use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
 use std::hash::Hash;
 use std::ops::Add;
+pub type ZwoHasher = std::hash::BuildHasherDefault<zwohash::ZwoHasher>;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct DjikstraNode<P: Ord, V: Eq> {
@@ -27,9 +28,9 @@ where
     I: IntoIterator<Item = V>,
     V: Copy + Eq + Hash,
 {
-    let mut prev: HashMap<V, V> = HashMap::new();
+    let mut prev: HashMap<V, V, ZwoHasher> = HashMap::default();
     let mut queue: BinaryHeap<DjikstraNode<W, V>> = BinaryHeap::new();
-    let mut dist: HashMap<V, W> = HashMap::new();
+    let mut dist: HashMap<V, W, ZwoHasher> = HashMap::default();
 
     queue.push(DjikstraNode::new(W::default(), start));
 
@@ -88,11 +89,11 @@ impl<P: Ord, V: Eq> PartialOrd for DjikstraNode<P, V> {
     }
 }
 
-pub type AdjMap<V, W> = HashMap<V, HashMap<V, W>>;
+pub type AdjMap<V, W> = HashMap<V, HashMap<V, W, ZwoHasher>, ZwoHasher>;
 
 /// Make an adjacency map out of a set of edges
 pub fn make_adj_map<V: Copy + Hash + Eq, W: Copy>(graph: &[(V, V, W)]) -> AdjMap<V, W> {
-    let mut adj: AdjMap<V, W> = HashMap::new();
+    let mut adj: AdjMap<V, W> = HashMap::default();
     for &(a, b, weight) in graph {
         adj.entry(a).or_default().insert(b, weight);
         adj.entry(b).or_default().insert(a, weight);
