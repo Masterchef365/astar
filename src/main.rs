@@ -73,11 +73,26 @@ fn main() {
                 if let Some(idx) = bounds(x, y, width, height) {
                     obstacles[idx] = true;
                     output_image[idx * 3..][..3].copy_from_slice(&path_color);
+                    for (x, y) in eight_directions((x, y)) {
+                        if let Some(idx) = bounds(x, y, width, height) {
+                            obstacles[idx] = true;
+                        }
+                    }
                 }
             }
         } else {
             *goal = None;
         }
+
+        /*
+        for x in 0..width {
+            for y in 0..height {
+                let (x, y) = (x as isize, y as isize);
+                if obstacles[bounds(x, y, width, height).unwrap()] {
+                }
+            }
+        }
+        */
     }
 
     // For reading and opening files
@@ -92,6 +107,8 @@ fn main() {
     writer.write_image_data(&output_image).unwrap(); // Save
 }
 
+/// If the given coordinate is in bounds, return it's index within an image with the given
+/// dimensions
 fn bounds(x: isize, y: isize, width: usize, height: usize) -> Option<usize> {
     (x >= 0 && y >= 0 && x < width as isize && y < height as isize)
         .then(|| x as usize + y as usize * width)
@@ -115,7 +132,15 @@ fn four_directions((x, y): Coord) -> [Coord; 4] {
 }
 
 /// Adjacent and diagonally adjacent pixels
-fn eight_directions((x, y): Coord) -> [Coord; 8] {
+fn eight_directions((x, y): Coord) -> impl Iterator<Item = Coord> {
+    let r = 10;
+    (-r..=r)
+        .map(move |dx| (-r..=r).map(move |dy| (dx, dy)))
+        .flatten()
+        .filter(move |(dx, dy)| dx * dx + dy * dy < r * r)
+        .map(move |(dx, dy)| (x + dx, y + dy))
+
+    /*
     [
         (x - 1, y),
         (x + 1, y),
@@ -126,6 +151,7 @@ fn eight_directions((x, y): Coord) -> [Coord; 8] {
         (x, y + 1),
         (x - 1, y + 1),
     ]
+    */
 }
 
 fn index_color(idx: usize) -> [u8; 3] {
