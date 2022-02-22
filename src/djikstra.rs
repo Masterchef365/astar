@@ -22,6 +22,7 @@ pub fn djikstra<V, W, I>(
     adjacent: impl Fn(V) -> I,
     start: V,
     end: V,
+    max_iters: usize,
 ) -> Option<Vec<V>>
 where
     W: Copy + Ord + Add<Output = W> + Default,
@@ -31,10 +32,16 @@ where
     let mut prev: HashMap<V, V, ZwoHasher> = HashMap::default();
     let mut queue: BinaryHeap<DjikstraNode<W, V>> = BinaryHeap::new();
     let mut dist: HashMap<V, W, ZwoHasher> = HashMap::default();
+    let mut iters = 0;
 
     queue.push(DjikstraNode::new(W::default(), start));
 
     while let Some(node) = queue.pop() {
+        if iters > max_iters {
+            return None;
+        }
+        iters += 1;
+
         // Skip invalidated nodes
         if let Some(&min) = dist.get(&node.vertex) {
             if node.priority > min {
@@ -110,7 +117,7 @@ where
     let cost = |a, b| adj[&a][&b];
     let adjacent = |a| adj[&a].keys().copied();
 
-    djikstra(cost, adjacent, start, end)
+    djikstra(cost, adjacent, start, end, usize::MAX)
 }
 
 // TODO: More tests...

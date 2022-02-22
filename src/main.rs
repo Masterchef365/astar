@@ -6,13 +6,14 @@ use std::io::BufWriter;
 type Coord = (isize, isize);
 
 fn main() {
-    let width = 1500;
-    let height = 500;
+    let width = 2880;
+    let height = 1800;
     let mut obstacles = vec![false; width * height];
     let image_path = "out.png";
+    let max_iters = 9999;
 
     let min_path_len = (width + height) * 2;
-    let n_paths = 1355;
+    let n_paths = 40_000;
 
     let mut rng = rand::thread_rng();
 
@@ -36,7 +37,9 @@ fn main() {
     let mut output_image = vec![0u8; width * height * 3];
 
     for (goal_idx, goal) in goals.iter_mut().enumerate() {
-        dbg!(goal_idx);
+        if goal_idx % 1_000 == 0 {
+            dbg!(goal_idx);
+        }
 
         let (begin, end) = match goal.as_mut() {
             Some(g) => g,
@@ -64,7 +67,7 @@ fn main() {
         let cost = |a, b| 1 + heuristic(b, a, *end);
 
         // Calculate path
-        if let Some(path) = djikstra(cost, neighbors, *begin, *end) {
+        if let Some(path) = djikstra(cost, neighbors, *begin, *end, max_iters) {
             for (x, y) in path {
                 if let Some(idx) = bounds(x, y, width, height) {
                     obstacles[idx] = true;
