@@ -2,62 +2,105 @@ use astar::djikstra::djikstra;
 use rand::prelude::*;
 use std::fs::File;
 use std::io::BufWriter;
+use structopt::StructOpt;
+use std::path::PathBuf;
+use anyhow::Result;
 
 type Coord = (isize, isize);
 
-fn main() {
-    let width = 2880;
-    let height = 1800;
-    let mut obstacles = vec![false; width * height];
-    let image_path = "out.png";
-    let max_iters = 4999;
-    let seed = 4328070342;
+#[derive(StructOpt, Debug)]
+struct Opt {
+    #[structopt(short, long, default_value = "1920")]
+    width: usize,
 
-    let min_path_len = (width + height) * 2;
-    let n_paths = 400_000;
+    #[structopt(short, long, default_value = "1080")]
+    height: usize,
 
+    /// Overrides width and height parameters.
+    #[structopt(short = "b", long)]
+    obstacles: Option<PathBuf>,
+
+    /// Output image path
+    #[structopt(short, long, default_value = "out.png")]
+    out_path: PathBuf,
+
+    /// Number of paths
+    #[structopt(short, long, default_value = "40000")]
+    n_paths: usize,
+
+    /// Maximum number of iterations
+    #[structopt(short = "i", long, default_value = "8000")]
+    max_iters: usize,
+
+    /// Random seed
+    #[structopt(short, long)]
+    seed: Option<u64>,
+
+    /// Lines avoid one another in this radius
+    #[structopt(short = "r", long, default_value = "10")]
+    avoid_radius: isize,
+}
+
+fn main() -> Result<()> {
+    let args = Opt::from_args();
+
+    // Decode obstacles, if any
+    let (width, height, mut obstacles) = match args.obstacles {
+        Some(obstacle_path) => {
+            let decoder = png::Decoder::new(File::open(obstacle_path)?);
+            let mut reader = decoder.read_info()?;
+            let mut buf = vec![0; reader.output_buffer_size()];
+            let info = reader.next_frame(&mut buf)?;
+            assert!(info.color_type == png::ColorType::Rgb);
+            assert!(info.bit_depth == png::BitDepth::Eight);
+            let input_bytes = &buf[..info.buffer_size()];
+
+            let width = info.width as usize;
+            let height = info.height as usize;
+            assert_eq!(input_bytes.len(), width * height * 3);
+            let mut obstacles = vec![false; width * height];
+            obstacles.iter_mut().zip(input_bytes.chunks_exact(3)).for_each(|(ob, inp)| *ob = inp != &[0; 3]);
+
+            (width, height, obstacles)
+        },
+        None => (args.width, args.height, vec![false; args.width * args.height]),
+    };
+
+    //let min_path_len = (width + height) * 2;
+
+    let seed = args.seed.unwrap_or_else(|| rand::thread_rng().gen());
     let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
 
-    fn random_pos(mut rng: impl Rng, width: usize, height: usize) -> Coord {
-        (
-            rng.gen_range(0..width as isize),
-            rng.gen_range(0..height as isize),
-        )
-    }
-
-    let mut goals: Vec<Option<(Coord, Coord)>> = (0..n_paths)
+    // Create path goals (beginnings and ends)
+    let goals: Vec<(Coord, Coord)> = (0..args.n_paths)
         .map(|_| {
-            Some((
+            (
                 random_pos(&mut rng, width, height),
                 random_pos(&mut rng, width, height),
-            ))
+            )
         })
         .collect();
 
     // Write to image
     let mut output_image = vec![0u8; width * height * 3];
 
-    for (goal_idx, goal) in goals.iter_mut().enumerate() {
+    for (goal_idx, (begin, end)) in goals.iter().enumerate() {
         if goal_idx % 1_000 == 0 {
             dbg!(goal_idx);
         }
 
-        let (begin, end) = match goal.as_mut() {
-            Some(g) => g,
-            None => continue,
-        };
-
+        // Reject 
+        /*
         if *begin == *end || dist_sq(*begin, *end) < min_path_len as isize {
-            *goal = None;
             continue;
         }
+        */
 
         let path_color = index_color(goal_idx);
 
         // Neighbors
         let neighbors = |(x, y)| {
             four_directions((x, y))
-                //eight_directions((x, y))
                 .into_iter()
                 .filter(|&(x, y)| match bounds(x, y, width, height) {
                     Some(idx) => !obstacles[idx],
@@ -68,43 +111,40 @@ fn main() {
         let cost = |a, b| 1 + heuristic(b, a, *end);
 
         // Calculate path
-        if let Some(path) = djikstra(cost, neighbors, *begin, *end, max_iters) {
+        if let Some(path) = djikstra(cost, neighbors, *begin, *end, args.max_iters) {
             for (x, y) in path {
                 if let Some(idx) = bounds(x, y, width, height) {
                     obstacles[idx] = true;
                     output_image[idx * 3..][..3].copy_from_slice(&path_color);
-                    for (x, y) in eight_directions((x, y)) {
+                    for (x, y) in circle((x, y), args.avoid_radius) {
                         if let Some(idx) = bounds(x, y, width, height) {
                             obstacles[idx] = true;
                         }
                     }
                 }
             }
-        } else {
-            *goal = None;
         }
-
-        /*
-        for x in 0..width {
-            for y in 0..height {
-                let (x, y) = (x as isize, y as isize);
-                if obstacles[bounds(x, y, width, height).unwrap()] {
-                }
-            }
-        }
-        */
     }
 
     // For reading and opening files
-    let file = File::create(image_path).unwrap();
+    let file = File::create(args.out_path)?;
     let ref mut w = BufWriter::new(file);
 
     let mut encoder = png::Encoder::new(w, width as _, height as _); // Width is 2 pixels and height is 1.
     encoder.set_color(png::ColorType::Rgb);
     encoder.set_depth(png::BitDepth::Eight);
-    let mut writer = encoder.write_header().unwrap();
+    let mut writer = encoder.write_header()?;
 
-    writer.write_image_data(&output_image).unwrap(); // Save
+    writer.write_image_data(&output_image)?; // Save
+    Ok(())
+}
+
+/// Generate a random coordinate
+fn random_pos(mut rng: impl Rng, width: usize, height: usize) -> Coord {
+    (
+        rng.gen_range(0..width as isize),
+        rng.gen_range(0..height as isize),
+    )
 }
 
 /// If the given coordinate is in bounds, return it's index within an image with the given
@@ -131,29 +171,18 @@ fn four_directions((x, y): Coord) -> [Coord; 4] {
     [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
 }
 
-/// Adjacent and diagonally adjacent pixels
-fn eight_directions((x, y): Coord) -> impl Iterator<Item = Coord> {
-    let r = 10;
+/// Filled circle with the given center and radius 
+fn circle((x, y): Coord, r: isize) -> impl Iterator<Item = Coord> {
+    // TODO: Make this faster!
     (-r..=r)
         .map(move |dx| (-r..=r).map(move |dy| (dx, dy)))
         .flatten()
         .filter(move |(dx, dy)| dx * dx + dy * dy < r * r)
         .map(move |(dx, dy)| (x + dx, y + dy))
-
-    /*
-    [
-        (x - 1, y),
-        (x + 1, y),
-        (x + 1, y - 1),
-        (x, y - 1),
-        (x - 1, y - 1),
-        (x + 1, y + 1),
-        (x, y + 1),
-        (x - 1, y + 1),
-    ]
-    */
 }
 
+// TODO: Make this a parameter!!
+/// Color LUT
 fn index_color(idx: usize) -> [u8; 3] {
     let lut: [[i32; 3]; 3] = [[0xFF, 0xEC, 0x04], [0x38, 0xC6, 0xDB], [0xDB, 0x38, 0x83]];
     let base = lut[idx % lut.len()];

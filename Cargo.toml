@@ -9,6 +9,7 @@ png = "0.17.3"
 rand = { version = "0.8", features = ["small_rng"] }
 zwohash = { version = "0.1.2", default-features = false }
 structopt = { version = "0.3", default-features = false }
+anyhow = "1"
 
 [profile.release]
 debug = true
