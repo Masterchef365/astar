@@ -16,6 +16,7 @@ struct Opt {
     #[structopt(short, long, default_value = "1080")]
     height: usize,
 
+    /// Input RGB PNG image, non-#000000 pixels will be considered obstacles.
     /// Overrides width and height parameters.
     #[structopt(short = "b", long)]
     obstacles: Option<PathBuf>,
@@ -39,6 +40,10 @@ struct Opt {
     /// Lines avoid one another in this radius
     #[structopt(short = "r", long, default_value = "10")]
     avoid_radius: isize,
+
+    /// Minimum path start/end distance
+    #[structopt(short = "d", long, default_value = "5000")]
+    min_path_dist: isize
 }
 
 fn main() -> Result<()> {
@@ -66,8 +71,6 @@ fn main() -> Result<()> {
         None => (args.width, args.height, vec![false; args.width * args.height]),
     };
 
-    //let min_path_len = (width + height) * 2;
-
     let seed = args.seed.unwrap_or_else(|| rand::thread_rng().gen());
     let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
 
@@ -79,6 +82,8 @@ fn main() -> Result<()> {
                 random_pos(&mut rng, width, height),
             )
         })
+        .filter(|(begin, end)| dist_sq(*begin, *end) >= args.min_path_dist)
+        .take(args.n_paths)
         .collect();
 
     // Write to image
@@ -88,13 +93,6 @@ fn main() -> Result<()> {
         if goal_idx % 1_000 == 0 {
             dbg!(goal_idx);
         }
-
-        // Reject 
-        /*
-        if *begin == *end || dist_sq(*begin, *end) < min_path_len as isize {
-            continue;
-        }
-        */
 
         let path_color = index_color(goal_idx);
 
