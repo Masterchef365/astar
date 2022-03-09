@@ -97,12 +97,15 @@ fn main() -> Result<()> {
         let path_color = index_color(goal_idx);
 
         // Neighbors
-        let neighbors = |(x, y)| {
-            four_directions((x, y))
+        let obs = &obstacles;
+        let neighbors = move |begin| {
+            four_directions(begin)
                 .into_iter()
-                .filter(|&(x, y)| match bounds(x, y, width, height) {
-                    Some(idx) => !obstacles[idx],
-                    None => false,
+                .filter(move |&end| {
+                    bresenham(begin, end)
+                        .all(|(x, y)| bounds(x, y, width, height)
+                            .map(|idx| !obs[idx])
+                            .unwrap_or(false))
                 })
         };
 
@@ -110,16 +113,20 @@ fn main() -> Result<()> {
 
         // Calculate path
         if let Some(path) = djikstra(cost, neighbors, *begin, *end, args.max_iters) {
-            for (x, y) in path {
-                if let Some(idx) = bounds(x, y, width, height) {
-                    obstacles[idx] = true;
-                    output_image[idx * 3..][..3].copy_from_slice(&path_color);
-                    for (x, y) in circle((x, y), args.avoid_radius) {
-                        if let Some(idx) = bounds(x, y, width, height) {
-                            obstacles[idx] = true;
+            let mut last = *end;
+            for node in path {
+                for (x, y) in bresenham(last, node) {
+                    if let Some(idx) = bounds(x, y, width, height) {
+                        obstacles[idx] = true;
+                        output_image[idx * 3..][..3].copy_from_slice(&path_color);
+                        for (x, y) in circle((x, y), args.avoid_radius) {
+                            if let Some(idx) = bounds(x, y, width, height) {
+                                obstacles[idx] = true;
+                            }
                         }
                     }
                 }
+                last = node;
             }
         }
     }
@@ -137,11 +144,13 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+const K: isize = 20;
+
 /// Generate a random coordinate
 fn random_pos(mut rng: impl Rng, width: usize, height: usize) -> Coord {
     (
-        rng.gen_range(0..width as isize),
-        rng.gen_range(0..height as isize),
+        rng.gen_range(0..width as isize / K) * K,
+        rng.gen_range(0..height as isize / K) * K,
     )
 }
 
@@ -166,7 +175,7 @@ fn dist_sq((x, y): Coord, (goal_x, goal_y): Coord) -> isize {
 
 /// Up, down, left, right
 fn four_directions((x, y): Coord) -> [Coord; 4] {
-    [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
+    [(x - K, y - K), (x + K, y - K), (x + K, y - K), (x + K, y + K)]
 }
 
 /// Filled circle with the given center and radius 
@@ -188,4 +197,35 @@ fn index_color(idx: usize) -> [u8; 3] {
     let diff: i32 = 30;
     let mut component = |idx: usize| (base[idx] + rng.gen_range(-diff..=diff)).clamp(0, 255) as u8;
     [component(0), component(1), component(2)]
+}
+
+// https://en.wikipedia.org/wiki/Bresenham's_line_algorithm
+fn bresenham((mut x0, mut y0): Coord, (x1, y1): Coord) -> impl Iterator<Item = Coord> {
+    let dx = (x1 - x0).abs();
+    let sx = if x0 < x1 { 1 } else { -1 };
+    let dy = -(y1 - y0).abs();
+    let sy = if y0 < y1 { 1 } else { -1 };
+    let mut error = dx + dy;
+
+    std::iter::once((x0, y0)).chain(std::iter::from_fn(move || {
+        if x0 == x1 && y0 == y1 {
+            return None;
+        }
+        let e2 = 2 * error;
+        if e2 >= dy {
+            if x0 == x1 {
+                return None;
+            }
+            error = error + dy;
+            x0 = x0 + sx;
+        }
+        if e2 <= dx {
+            if y0 == y1 {
+                return None;
+            }
+            error = error + dx;
+            y0 = y0 + sy;
+        }
+        Some((x0, y0))
+    }))
 }
