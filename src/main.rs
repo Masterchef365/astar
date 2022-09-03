@@ -2,9 +2,10 @@ use astar::djikstra::djikstra;
 use rand::prelude::*;
 use std::fs::File;
 use std::io::BufWriter;
+use std::str::FromStr;
 use structopt::StructOpt;
 use std::path::PathBuf;
-use anyhow::Result;
+use anyhow::{Result, ensure};
 
 type Coord = (isize, isize);
 
@@ -22,11 +23,11 @@ struct Opt {
     obstacles: Option<PathBuf>,
 
     /// Output image path
-    #[structopt(short, long, default_value = "out.png")]
+    #[structopt(short = "o", long, default_value = "out.png")]
     out_path: PathBuf,
 
     /// Number of paths
-    #[structopt(short, long, default_value = "40000")]
+    #[structopt(short = "n", long, default_value = "40000")]
     n_paths: usize,
 
     /// Maximum number of iterations
@@ -34,17 +35,37 @@ struct Opt {
     max_iters: usize,
 
     /// Random seed
-    #[structopt(short, long)]
+    #[structopt(short = "s", long)]
     seed: Option<u64>,
 
     /// Lines avoid one another in this radius
-    #[structopt(short = "r", long, default_value = "10")]
+    #[structopt(short = "r", long, default_value = "11")]
     avoid_radius: isize,
 
     /// Minimum path start/end distance
     #[structopt(short = "d", long, default_value = "5000")]
-    min_path_dist: isize
+    min_path_dist: isize,
+    
+    /// Mirror over X before output
+    #[structopt(long, short = "x")]
+    mirror_x: bool,
+
+    /// Mirror over Y before output
+    #[structopt(long, short = "y")]
+    mirror_y: bool,
+
+    // /// Palette
+    // #[structopt(long, short = "p")]
+    // palette: Vec<HexColor>,
 }
+
+/*
+struct HexColor([u8; 3]);
+
+impl FromStr for HexColor {
+
+}
+*/
 
 fn main() -> Result<()> {
     let args = Opt::from_args();
@@ -72,6 +93,7 @@ fn main() -> Result<()> {
     };
 
     let seed = args.seed.unwrap_or_else(|| rand::thread_rng().gen());
+    dbg!(seed);
     let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
 
     // Create path goals (beginnings and ends)
@@ -122,6 +144,19 @@ fn main() -> Result<()> {
                 }
             }
         }
+    }
+
+    let mut width = width;
+    let mut height = height;
+    
+    if args.mirror_x {
+        output_image = mirror_x(&output_image, width);
+        height *= 2;
+    }
+ 
+    if args.mirror_y {
+        output_image = mirror_y(&output_image, width);
+        width *= 2;
     }
 
     // For reading and opening files
@@ -188,4 +223,22 @@ fn index_color(idx: usize) -> [u8; 3] {
     let diff: i32 = 30;
     let mut component = |idx: usize| (base[idx] + rng.gen_range(-diff..=diff)).clamp(0, 255) as u8;
     [component(0), component(1), component(2)]
+}
+
+fn mirror_y(img: &[u8], w: usize) -> Vec<u8> {
+    let mut output = Vec::with_capacity(img.len() * 2);
+    for row in img.chunks_exact(w) {
+        output.extend_from_slice(row);
+        output.extend(row.iter().rev().copied());
+    }
+    output
+}
+
+fn mirror_x(img: &[u8], w: usize) -> Vec<u8> {
+    let mut output = img.to_vec();
+    output.reserve(img.len());
+    for row in img.chunks_exact(w).rev() {
+        output.extend_from_slice(row);
+    }
+    output
 }
