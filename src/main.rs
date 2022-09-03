@@ -227,7 +227,7 @@ fn index_color(idx: usize) -> [u8; 3] {
 
 fn mirror_y(img: &[u8], w: usize) -> Vec<u8> {
     let mut output = Vec::with_capacity(img.len() * 2);
-    for row in img.chunks_exact(w) {
+    for row in img.chunks_exact(w*3) {
         output.extend_from_slice(row);
         output.extend(row.iter().rev().copied());
     }
@@ -237,7 +237,7 @@ fn mirror_y(img: &[u8], w: usize) -> Vec<u8> {
 fn mirror_x(img: &[u8], w: usize) -> Vec<u8> {
     let mut output = img.to_vec();
     output.reserve(img.len());
-    for row in img.chunks_exact(w).rev() {
+    for row in img.chunks_exact(w*3).rev() {
         output.extend_from_slice(row);
     }
     output
