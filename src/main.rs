@@ -1,11 +1,11 @@
+use anyhow::{ensure, Result};
 use astar::djikstra::djikstra;
 use rand::prelude::*;
 use std::fs::File;
 use std::io::BufWriter;
+use std::path::PathBuf;
 use std::str::FromStr;
 use structopt::StructOpt;
-use std::path::PathBuf;
-use anyhow::{Result, ensure};
 
 type Coord = (isize, isize);
 
@@ -45,7 +45,7 @@ struct Opt {
     /// Minimum path start/end distance
     #[structopt(short = "d", long, default_value = "5000")]
     min_path_dist: isize,
-    
+
     /// Mirror over X before output
     #[structopt(long, short = "x")]
     mirror_x: bool,
@@ -53,7 +53,6 @@ struct Opt {
     /// Mirror over Y before output
     #[structopt(long, short = "y")]
     mirror_y: bool,
-
     // /// Palette
     // #[structopt(long, short = "p")]
     // palette: Vec<HexColor>,
@@ -85,11 +84,18 @@ fn main() -> Result<()> {
             let height = info.height as usize;
             assert_eq!(input_bytes.len(), width * height * 3);
             let mut obstacles = vec![false; width * height];
-            obstacles.iter_mut().zip(input_bytes.chunks_exact(3)).for_each(|(ob, inp)| *ob = inp != &[0; 3]);
+            obstacles
+                .iter_mut()
+                .zip(input_bytes.chunks_exact(3))
+                .for_each(|(ob, inp)| *ob = inp != &[0; 3]);
 
             (width, height, obstacles)
-        },
-        None => (args.width, args.height, vec![false; args.width * args.height]),
+        }
+        None => (
+            args.width,
+            args.height,
+            vec![false; args.width * args.height],
+        ),
     };
 
     let seed = args.seed.unwrap_or_else(|| rand::thread_rng().gen());
@@ -120,12 +126,12 @@ fn main() -> Result<()> {
 
         // Neighbors
         let neighbors = |(x, y)| {
-            four_directions((x, y))
-                .into_iter()
-                .filter(|&(x, y)| match bounds(x, y, width, height) {
+            four_directions((x, y)).into_iter().filter(|&(x, y)| {
+                match bounds(x, y, width, height) {
                     Some(idx) => !obstacles[idx],
                     None => false,
-                })
+                }
+            })
         };
 
         let cost = |a, b| 1 + heuristic(b, a, *end);
@@ -148,12 +154,12 @@ fn main() -> Result<()> {
 
     let mut width = width;
     let mut height = height;
-    
+
     if args.mirror_x {
         output_image = mirror_x(&output_image, width);
         height *= 2;
     }
- 
+
     if args.mirror_y {
         output_image = mirror_y(&output_image, width);
         width *= 2;
@@ -204,7 +210,7 @@ fn four_directions((x, y): Coord) -> [Coord; 4] {
     [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
 }
 
-/// Filled circle with the given center and radius 
+/// Filled circle with the given center and radius
 fn circle((x, y): Coord, r: isize) -> impl Iterator<Item = Coord> {
     // TODO: Make this faster!
     (-r..=r)
@@ -227,9 +233,9 @@ fn index_color(idx: usize) -> [u8; 3] {
 
 fn mirror_y(img: &[u8], w: usize) -> Vec<u8> {
     let mut output = Vec::with_capacity(img.len() * 2);
-    for row in img.chunks_exact(w*3) {
+    for row in img.chunks_exact(w * 3) {
         output.extend_from_slice(row);
-        output.extend(row.iter().rev().copied());
+        output.extend(row.chunks_exact(3).rev().flatten().copied());
     }
     output
 }
@@ -237,7 +243,7 @@ fn mirror_y(img: &[u8], w: usize) -> Vec<u8> {
 fn mirror_x(img: &[u8], w: usize) -> Vec<u8> {
     let mut output = img.to_vec();
     output.reserve(img.len());
-    for row in img.chunks_exact(w*3).rev() {
+    for row in img.chunks_exact(w * 3).rev() {
         output.extend_from_slice(row);
     }
     output
